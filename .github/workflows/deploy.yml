@@ -1,0 +1,61 @@
+name: Deploy Core API to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  REPO_NAME: apnacodex-repo
+  SERVICE_NAME: apnacodex-backend
+  INSTANCE_CONNECTION_NAME: gharbot-production-2026:asia-south1:apnacodex-postgres
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+
+      - name: Build and Push Docker image
+        run: |
+          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:${{ github.sha }} .
+          docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          flags: "--add-cloudsql-instances=${{ env.INSTANCE_CONNECTION_NAME }} --allow-unauthenticated"
+          env_vars: |
+            NODE_ENV=production
+            DATABASE_URL=postgresql://apnacodex:apnapassword123@localhost/apnacodex_backend?host=/cloudsql/${{ env.INSTANCE_CONNECTION_NAME }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            EVOLUTION_API_URL=https://apnacodex-whatsapp-905685638404.asia-south1.run.app
+            EVOLUTION_API_KEY=apnacodex_key_2026
+            CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}
+            CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}
+            CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}
+            OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+            EMAIL_PROVIDER=gmail
+            GMAIL_USER=${{ secrets.GMAIL_USER }}
+            GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}
+            EMAIL_FROM=noreply@apnacodex.com
+            EMAIL_FROM_NAME=ApnaCodex Property
+            PUBLIC_URL=https://apnacodex.info

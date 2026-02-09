@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Dealer {
+  id              String          @id @default(uuid())
+  email           String          @unique
+  password        String
+  name            String
+  phone           String?
+  phoneVerified   Boolean         @default(false)
+  phoneVerifiedAt DateTime?
+  role            String          @default("dealer")
+  verified        Boolean         @default(false)
+  verifiedAt      DateTime?
+  otp             String?
+  otpExpiry       DateTime?
+  otpPurpose      String?
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  companyProfile  CompanyProfile?
+  leads           Lead[]
+  properties      Property[]
+  salesReps       SalesRep[]
+  subscription    Subscription?
+}
+
+model SubscriptionPlan {
+  id            String         @id @default(uuid())
+  planName      String
+  price         Float
+  currency      String         @default("INR")
+  status        String         @default("active")
+  interval      String         @default("monthly")
+  features      String         @default("[]")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id               String           @id @default(uuid())
+  dealerId         String           @unique
+  planId           String
+  stripeSubId      String?
+  razorpaySubId    String?
+  status           String           @default("incomplete")
+  currentPeriodEnd DateTime?
+  trialEndsAt      DateTime?
+  cancelAt         DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  invoices         Invoice[]
+  dealer           Dealer           @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  plan             SubscriptionPlan @relation(fields: [planId], references: [id])
+}
+
+model Invoice {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  amount         Float
+  currency       String       @default("INR")
+  status         String
+  pdfUrl         String?
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model CompanyProfile {
+  id                String    @id @default(uuid())
+  dealerId          String    @unique
+  companyName       String
+  companyType       String    @default("agency")
+  tagline           String?
+  description       String?
+  logo              String?
+  phone             String
+  email             String
+  address           String
+  city              String    @default("Delhi")
+  state             String    @default("Delhi")
+  website           String?
+  botName           String    @default("Property Assistant")
+  botTone           String    @default("professional")
+  welcomeMessage    String?
+  operatingHours    String    @default("{\"mon\":\"9-6\",\"tue\":\"9-6\",\"wed\":\"9-6\",\"thu\":\"9-6\",\"fri\":\"9-6\",\"sat\":\"10-4\",\"sun\":\"closed\"}")
+  serviceAreas      String    @default("[\"Delhi\",\"Noida\",\"Gurgaon\"]")
+  languages         String    @default("[\"English\",\"Hindi\"]")
+  whatsappNumber    String?
+  whatsappConnected Boolean   @default(false)
+  whatsappInstance  String?
+  instanceStatus    String?   @default("disconnected")
+  lastSeen          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  dealer            Dealer    @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+}
+
+model Property {
+  id           String   @id @default(uuid())
+  title        String
+  bhk          Int?
+  sqft         Float?
+  price        Float
+  location     String?
+  reraNo       String?
+  amenities    String   @default("[]")
+  images       String   @default("[]")
+  floorPlanUrl String?
+  reraPlanUrl  String?
+  possession   String?
+  available    Boolean  @default(true)
+  category     String
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  dealerId     String?
+  dealer       Dealer?  @relation(fields: [dealerId], references: [id])
+
+  @@index([dealerId])
+}
+
+model Lead {
+  id            String    @id @default(uuid())
+  pdId          String    @unique
+  buyerName     String
+  buyerPhone    String
+  buyerEmail    String?
+  requirements  String
+  budget        Float
+  status        String    @default("NEW")
+  location      String
+  notes         String    @default("[]")
+  assignedRepId String?
+  source        String    @default("WhatsApp")
+  priority      String    @default("MEDIUM")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  dealerId      String?
+  assignedRep   SalesRep? @relation(fields: [assignedRepId], references: [id])
+  dealer        Dealer?   @relation(fields: [dealerId], references: [id])
+
+  @@index([dealerId])
+  @@index([dealerId, status])
+}
+
+model SalesRep {
+  id         String   @id @default(uuid())
+  dealerId   String?
+  name       String
+  phone      String   @unique
+  email      String?
+  active     Boolean  @default(true)
+  commission Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  leads      Lead[]
+  dealer     Dealer?  @relation(fields: [dealerId], references: [id])
+
+  @@index([dealerId])
+}
+
+model ReferralCode {
+  id         String    @id @default(uuid())
+  code       String    @unique
+  discount   Float
+  type       String    @default("percentage")
+  active     Boolean   @default(true)
+  usageLimit Int       @default(100)
+  usedCount  Int       @default(0)
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model WhatsAppSession {
+  id          String   @id @default(uuid())
+  dealerId    String?
+  phoneNumber String
+  state       String   @default("idle")
+  data        String   @default("{}")
+  isAdmin     Boolean  @default(false)
+  lastUpdate  DateTime @updatedAt
+
+  @@unique([dealerId, phoneNumber])
+}
+
+model AgencySettings {
+  id           String  @id
+  agencyName   String  @default("ApnaCodex Property Solutions")
+  phone        String  @default("+91 98765 43210")
+  address      String  @default("Sector 44, Gurgaon, Haryana")
+  upiId        String  @default("apnacodex@upi")
+  radius       Float   @default(25.0)
+  lat          Float   @default(28.4595)
+  lng          Float   @default(77.0266)
+  logo         String?
+  salesReps    String  @default("[]")
+  ownerContact String  @default("+91 98765 43210")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("DEALER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

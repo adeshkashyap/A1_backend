@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # WHATSAPP SERVICE (Evolution API)
+  # ==========================================
+  whatsapp_api:
+    image: evoapicloud/evolution-api:latest
+    restart: always
+    environment:
+       - SERVER_PORT=8080
+       - SERVER_URL=http://localhost:8080  # This will be overridden by public IP in prod if needed, or internal
+       - DATABASE_PROVIDER=postgresql
+       - DATABASE_CONNECTION_URI=postgresql://apnacodex:apnapassword@postgres:5432/evolution_db?schema=public
+       - CACHE_REDIS_ENABLED=true
+       - CACHE_REDIS_URI=redis://redis:6379
+       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - whatsapp_instances:/evolution/instances
+    networks:
+      - gharbot_net
+
+  redis:
+    image: redis:latest
+    command: redis-server --appendonly yes
+    volumes:
+      - whatsapp_redis:/data
+    networks:
+      - gharbot_net
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=evolution_db
+      - POSTGRES_USER=apnacodex
+      - POSTGRES_PASSWORD=apnapassword
+    volumes:
+      - whatsapp_postgres:/var/lib/postgresql/data
+    networks:
+      - gharbot_net
+
+  # ==========================================
+  # CORE API (Backend)
+  # ==========================================
+  backend:
+    build: 
+      context: .
+    restart: always
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - EVOLUTION_API_URL=http://whatsapp_api:8080
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=3001
+      - PUBLIC_URL=${PUBLIC_URL}
+    depends_on:
+      - whatsapp_api
+    ports:
+      - "3001:3001"
+    networks:
+      - gharbot_net
+
+volumes:
+  whatsapp_instances:
+  whatsapp_redis:
+  whatsapp_postgres:
+
+networks:
+  gharbot_net:
+    driver: bridge
