@@ -89,4 +89,8 @@ You can verify `noreply@apnacodex.com` later when you have time. The system work
 3. **Test** the OTP emails
 4. **Later**: Set up email forwarding to verify `noreply@apnacodex.com`
 
+<<<<<<< Updated upstream
 The system is ready to go! 🎯
+=======
+The system is ready to go!
+>>>>>>> Stashed changes
