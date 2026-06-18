@@ -4,6 +4,7 @@ async function test() {
   console.log('----------------------------------------');
   console.log('📧 Sending Test Email to: addyky100@gmail.com');
   // Log masked credentials to verify env loading
+  //hello one
   const user = process.env.SMTP_USER || 'undefined';
   const pass = process.env.SMTP_PASSWORD ? '********' : 'undefined';
   console.log(`Using SMTP: ${user} / ${pass}`);
